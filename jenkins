@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    environment {
+        MAVEN_HOME = tool 'Maven'  // Ensure 'Maven' is configured in Jenkins tools
+        PATH = "${MAVEN_HOME}/bin:${env.PATH}"
+    }
+
+    stages {
+        stage('Install Dependencies') {
+            steps {
+                echo 'Installing dependencies...'
+                dir('C:\\Users\\Testing\\Downloads\\SimpleClinic') {
+                    bat 'mvn clean install -DskipTests=true'
+                }
+            }
+        }
+
+        stage('Start Appium Server on 127.0.0.1:4726') {
+            steps {
+                echo 'Starting Appium Server on 127.0.0.1:4726...'
+                bat 'start /min cmd /c "appium -a 127.0.0.1 -p 4726 --base-path /wd/hub"'
+                sleep time: 10, unit: 'SECONDS'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                echo 'Running Selenium + Appium tests...'
+                dir('C:\\Users\\Testing\\Downloads\\SimpleClinic') {
+                    bat 'mvn test'
+                }
+            }
+        }
+
+        stage('Archive Results') {
+            steps {
+                dir('C:\\Users\\Testing\\Downloads\\SimpleClinic') {
+                    // Optional: Add if you're generating .xml test reports
+                    // junit 'target/surefire-reports/*.xml'
+
+                    archiveArtifacts artifacts: 'target/*.log', allowEmptyArchive: true
+
+                    publishHTML(target: [
+                        allowMissing         : false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll              : true,
+                        reportDir            : 'test-output',
+                        reportFiles          : 'emailable-report.html',
+                        reportName           : 'TestNG HTML Report'
+                    ])
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Stopping Appium server...'
+            // Optional: Kill Appium server after run
+            // bat 'taskkill /F /IM node.exe'
+        }
+
+        success {
+            echo '✅ Build completed successfully!'
+        }
+
+        failure {
+            echo '❌ Build failed. Check test reports and logs.'
+        }
+    }
+}
